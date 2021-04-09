@@ -1,0 +1,16 @@
+{
+  "name": "sortthings",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "npm run build:css && npm run build:minify",
+    "build:css": "npx tailwindcss-cli@latest build ./assets/css/main.css -o ./temp/main.css",
+    "build:minify": "cleancss ./temp/main.css -o main.css"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "clean-css-cli": "^5.2.2",
+    "tailwindcss": "^2.1.1"
+  }
+}
