@@ -6,7 +6,7 @@ module.exports = {
         mode: 'all',
         preserveHtmlElements: false,
         enabled: true,
-        content: ['*.html'],
+        content: ['*.html', '*.js', 'assets/js/*.js'],
         options: {
             keyframes: true,
           }
@@ -16,7 +16,8 @@ module.exports = {
         colors: {
           'light-blue': colors.lightBlue,
           cyan: colors.cyan,
-          green: colors.emerald
+          green: colors.emerald,
+          yellow: colors.amber
         },
       },
     },

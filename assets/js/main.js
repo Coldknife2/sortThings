@@ -6,14 +6,30 @@ let choiceSection = document.getElementById("choiceSection");
 let startSection = document.getElementById("startSection");
 let resultDisplaySection = document.getElementById("resultDisplaySection");
 let resultDisplayCopy = document.getElementById("resultDisplayCopy");
+let numberBattleDisplay = document.getElementById("numberBattleDisplay");
+let numberBattleMaxDisplay = document.getElementById("numberBattleMaxDisplay");
+let completionPercentage = document.getElementById("completionPercentage");
+
+let numberBattles = 0;
+let startingNumberToSort = 0;
 
 function start()
 {
     createArrayFromInput();
-    hideInput();
+    if(startingArray.length && startingArray.length > 1)
+    {
+        startingNumberToSort = startingArray.length;
+        calculateWorstCaseDichotomicSort(startingArray.length);
+        hideInput();
 
-    showChoices();
-    initializeChoices();
+        showChoices();
+        initializeChoices();
+
+
+        numberBattleDisplay.innerText = numberBattles + 1;
+        numberBattleMaxDisplay.innerText = sumArray(predictedWorstCase);
+        completionPercentage.innerText = Math.floor(destinationArray.length / startingNumberToSort * 100);
+    }
 }
 
 function createArrayFromInput()
@@ -73,6 +89,7 @@ function choiceFinished()
     lowerBound = null;
     higherBound = null;
     indexPresentedChoice = null;
+    predictedWorstCase.shift();
     if(startingArray.length > 0)
     {
         currentEvaluatedChoice = startingArray.pop();
@@ -87,6 +104,8 @@ function choiceFinished()
 
 function compute()
 {
+    numberBattles++;
+    numberBattleDisplay.innerText = numberBattles + 1;
     if(lowerBound != null && higherBound != null && higherBound - lowerBound == 1)
     {
         // Choix fini
@@ -110,6 +129,9 @@ function compute()
     let nextChoice = lowestBound + Math.floor( Math.abs(highestBound - lowestBound) / 2 );
     indexPresentedChoice = nextChoice;
     setTextRight(destinationArray[indexPresentedChoice]);
+    predictedWorstCase[0]--;
+    numberBattleMaxDisplay.innerText = sumArray(predictedWorstCase);
+    completionPercentage.innerText = Math.floor(destinationArray.length / startingNumberToSort * 100);
 }
 
 function displayResults()
@@ -153,3 +175,14 @@ const copyToClipboard = () => {
     document.body.removeChild(el);
     resultDisplayCopy.innerText = "Copié !";
   };
+
+let predictedWorstCase = [];
+
+function calculateWorstCaseDichotomicSort(n) {
+    predictedWorstCase = new Array(n-1).fill(0).map((v,i) => 1+Math.ceil(Math.log(i+1) / Math.log(2)));
+}
+
+function sumArray(array) 
+{
+    return array.reduce((a,v)=>a+v,0);
+}

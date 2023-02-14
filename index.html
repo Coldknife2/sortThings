@@ -2,7 +2,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <link href="./temp/main.css" rel="stylesheet">
+    <link href="main.css" rel="stylesheet">
 </head>
 
 <body onload="load()">
@@ -18,11 +18,12 @@
                 <div id="startSection" class="flex flex-col w-full block flex-auto place-items-center">
                     <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" id="" cols="30"
                         rows="10"></textarea>
+                    <div>Rentrez une liste de choses que vous voulez trier, séparées par un saut de ligne</div>
                     <div class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40"
                         onclick="start()">Start</div>
                 </div>
                 <div id="choiceSection" class="hidden">
-                    <div class="display">
+                    <div class="flex justify-center">
                         <div>
                             <div id="choiceTextLeft"
                                 class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600  py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40"
@@ -50,6 +51,11 @@
                                 class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600  py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40"
                                 onclick="right()">Droite</div>
                         </div>
+                    </div>
+                    <div class="flex justify-center flex-col place-items-center">
+                        <div>Bataille numéro : <span id="numberBattleDisplay"></span></div>
+                        <div>Batailles restantes estimées max: <span id="numberBattleMaxDisplay"></span></div>
+                        <div>Complétion: <span id="completionPercentage"></span>%</div>
                     </div>
                 </div>
             </div>

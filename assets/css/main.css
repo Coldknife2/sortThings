@@ -2,19 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.buttonStart{
-    width: 150px;
-    height: 15px;
-    background-color: black;
-    color: white;
-    margin: 2em;
-}
-
-.display{
-    display:flex;
-    justify-content: center;
-}
-
 .resize {
     resize: both;
     box-sizing: border-box;
