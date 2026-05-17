@@ -11,52 +11,102 @@
 <body>
     <div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
         <div class="relative py-3 sm:mx-auto w-4/5">
-            <div
-                class="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-3 sm:-rotate-6 sm:rounded-3xl">
-            </div>
+            <div class="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-3 sm:-rotate-6 sm:rounded-3xl"></div>
             <div class="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
-                <div id="resultDisplaySection" class="flex flex-wrap w-full block flex-auto place-items-center">
-                </div>
-                <div id="resultDisplayCopy" class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center w-xl inline-block hidden">Copier le tableau de sortie (JSON)</div>
-                <div id="startSection" class="flex flex-col w-full block flex-auto place-items-center">
-                    <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" cols="30"
-                        rows="10"></textarea>
-                    <div>Rentrez une liste de choses que vous voulez trier, séparées par un saut de ligne</div>
-                    <div id="startButton" class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40">Start</div>
-                </div>
-                <div id="choiceSection" class="hidden">
-                    <div class="flex justify-center">
-                        <div>
-                            <div id="choiceTextLeft"
-                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600  py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40">Gauche</div>
-                        </div>
-                        <svg class="w-12" x="0px" y="0px" viewBox="0 0 512 512" xml:space="preserve">
-                            <g transform="translate(0 1)">
-                                <path fill="#FFDD09"
-                                    d="M392.708,178.2H275.802L384.175,7.533H247.642l-128,256h100.693L119.642,502.467L392.708,178.2z" />
-                                <path fill="#FFFFFF" d="M281.775,7.533h-34.133l-128,256h34.133L281.775,7.533z" />
-                                <path fill="#FD9808"
-                                    d="M350.042,178.2l-204.8,243.2l-34.133,81.067L384.175,178.2H350.042z" />
-                                <path d="M119.642,511c-1.707,0-3.413,0-4.267-0.853c-3.413-2.56-5.12-6.827-3.413-10.24l95.573-227.84h-87.893
-        c-2.56,0-5.973-1.707-7.68-4.267s-1.707-5.973,0-8.533l128-256c1.707-2.56,4.267-4.267,7.68-4.267h136.533
-        c3.413,0,5.973,1.707,7.68,4.267s1.707,5.973,0,8.533l-99.84,157.867h100.693c3.413,0,5.973,1.707,7.68,5.12
-        c1.707,3.413,0.853,6.827-0.853,9.387L126.468,508.44C124.762,510.147,122.202,511,119.642,511z M133.295,255h87.04
-        c2.56,0,5.12,1.707,6.827,3.413c1.707,2.56,1.707,5.12,0.853,7.68l-78.507,187.733l225.28-267.093h-98.987
-        c-3.413,0-5.973-1.707-7.68-4.267s-1.707-5.973,0-8.533L368.815,16.067H252.762L133.295,255z" />
-                            </g>
-                        </svg>
 
-                        <div>
-                            <div id="choiceTextRight"
-                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600  py-2 px-4 rounded m-4 text-white text-center w-xl inline-block w-40">Droite</div>
-                        </div>
-                    </div>
-                    <div class="flex justify-center flex-col place-items-center">
-                        <div>Bataille numéro : <span id="numberBattleDisplay"></span></div>
-                        <div>Batailles restantes estimées max: <span id="numberBattleMaxDisplay"></span></div>
-                        <div>Complétion: <span id="completionPercentage"></span>%</div>
+                <!-- Results -->
+                <div id="resultDisplaySection" class="flex flex-wrap w-full flex-auto place-items-center"></div>
+                <div id="resultDisplayCopy"
+                    class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block hidden">
+                    Copier le tableau de sortie (JSON)
+                </div>
+
+                <!-- Step 1 – Input -->
+                <div id="startSection" class="flex flex-col w-full flex-auto place-items-center">
+                    <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" cols="30" rows="10"></textarea>
+                    <div class="text-sm text-gray-500 mt-1">Rentrez une liste de choses à trier, séparées par un saut de ligne</div>
+                    <div id="startButton"
+                        class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block w-40">
+                        Start
                     </div>
                 </div>
+
+                <!-- Step 2 – Configuration -->
+                <div id="configSection" class="hidden flex flex-col items-center gap-5">
+                    <h2 class="text-xl font-bold text-gray-800">Configuration du tri</h2>
+
+                    <p class="text-gray-600">
+                        Votre liste contient <strong id="configItemCount"></strong> éléments.
+                    </p>
+
+                    <!-- Info block -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 w-full max-w-lg text-sm text-gray-700 space-y-1">
+                        <div>
+                            Méthode classique (1 jalone) : <strong id="configBaselineEstimate"></strong> interactions
+                        </div>
+                        <div class="text-blue-700 font-medium">
+                            Recommandé pour rester sous 100 interactions :
+                            <strong id="configRecommendedK"></strong> jalons simultanés
+                            (~<strong id="configRecommendedEstimate"></strong> interactions)
+                        </div>
+                    </div>
+
+                    <!-- Custom k input -->
+                    <div class="flex items-center gap-3 text-sm">
+                        <label for="configKInput" class="text-gray-700">Nombre de jalons :</label>
+                        <input type="number" id="configKInput" min="1" max="20"
+                            class="border border-gray-300 rounded-lg px-3 py-1.5 w-20 text-center focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <span class="text-gray-600">
+                            → <strong id="configCustomEstimate"></strong> interactions estimées
+                        </span>
+                    </div>
+
+                    <button id="configValidateButton"
+                        class="cursor-pointer bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white font-semibold py-2 px-8 rounded-lg transition-colors">
+                        Valider et commencer
+                    </button>
+                </div>
+
+                <!-- Step 3 – Sorting -->
+                <div id="choiceSection" class="hidden flex flex-col gap-4">
+
+                    <!-- Item to rank -->
+                    <div class="text-center">
+                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Où placer :</div>
+                        <div id="currentItemDisplay"
+                            class="inline-block bg-amber-100 border-2 border-amber-400 text-amber-900 font-bold py-2 px-5 rounded-xl text-base max-w-full break-words">
+                        </div>
+                    </div>
+
+                    <!-- Direction hint -->
+                    <div class="text-center text-xs text-gray-400 select-none">
+                        ← Meilleur &nbsp;·&nbsp; Moins bon →
+                    </div>
+
+                    <!-- Anchor row -->
+                    <div id="anchorContainer"
+                        class="flex items-center gap-2 overflow-x-auto py-3 px-1 min-h-[80px]">
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="flex flex-col items-center gap-1 text-sm text-gray-500 border-t pt-3">
+                        <div>
+                            Élément
+                            <span id="currentItemNumber" class="font-semibold text-gray-700"></span>
+                            /
+                            <span id="totalItems" class="font-semibold text-gray-700"></span>
+                        </div>
+                        <div>
+                            Interactions : <span id="numberBattleDisplay" class="font-semibold text-gray-700">0</span>
+                            &nbsp;·&nbsp;
+                            Restantes estimées : ~<span id="numberBattleMaxDisplay" class="font-semibold text-gray-700">?</span>
+                        </div>
+                        <div>
+                            Complétion : <span id="completionPercentage" class="font-semibold text-gray-700">0</span>%
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

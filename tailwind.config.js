@@ -1,26 +1,8 @@
-// tailwind.config.js
-const colors = require('tailwindcss/colors')
-
+/** @type {import('tailwindcss').Config} */
 module.exports = {
-    purge: {
-        mode: 'all',
-        preserveHtmlElements: false,
-        enabled: true,
-        content: ['*.html', '*.js', 'assets/js/*.js'],
-        options: {
-            keyframes: true,
-          }
-    },
+    content: ['*.html', 'assets/js/*.js'],
     theme: {
-      extend: {
-        colors: {
-          'light-blue': colors.lightBlue,
-          cyan: colors.cyan,
-          green: colors.emerald,
-          yellow: colors.amber
-        },
-      },
+        extend: {},
     },
-    variants: {},
     plugins: [],
-  }
+}
