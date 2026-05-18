@@ -14,95 +14,182 @@
             <div class="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-3 sm:-rotate-6 sm:rounded-3xl"></div>
             <div class="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
 
-                <!-- Results -->
-                <div id="resultDisplaySection" class="flex flex-wrap w-full flex-auto place-items-center"></div>
-                <div id="resultDisplayCopy"
-                    class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block hidden">
-                    Copier le tableau de sortie (JSON)
+                <!-- Tabs -->
+                <div id="tabBar" class="tab-bar">
+                    <button type="button" class="tab-button is-active" data-tab="assisted">Tri assisté</button>
+                    <button type="button" class="tab-button" data-tab="manual">Tri manuel</button>
                 </div>
 
-                <!-- Step 1 – Input -->
-                <div id="startSection" class="flex flex-col w-full flex-auto place-items-center">
-                    <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" cols="30" rows="10"></textarea>
-                    <div class="text-sm text-gray-500 mt-1">Rentrez une liste de choses à trier, séparées par un saut de ligne</div>
-                    <div id="startButton"
-                        class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block w-40">
-                        Start
+                <!-- Tab : Tri assisté -->
+                <div id="assistedTab" class="tab-panel">
+
+                    <!-- Results -->
+                    <div id="resultSummary" class="hidden w-full text-center text-gray-700 font-medium mb-2"></div>
+                    <div id="resultDisplaySection" class="flex flex-wrap w-full flex-auto place-items-center"></div>
+                    <div id="resultDisplayCopy"
+                        class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block hidden">
+                        Copier le tableau de sortie (JSON)
                     </div>
+
+                    <!-- Step 1 – Input -->
+                    <div id="startSection" class="flex flex-col w-full flex-auto place-items-center">
+                        <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" cols="30" rows="10"></textarea>
+                        <div class="text-sm text-gray-500 mt-1">Rentrez une liste de choses à trier, séparées par un saut de ligne, ou collez un tableau JSON (ex. <code class="bg-gray-100 px-1 rounded">["A","B","C"]</code>)</div>
+                        <div id="startButton"
+                            class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block w-40">
+                            Start
+                        </div>
+                    </div>
+
+                    <!-- Step 2 – Configuration -->
+                    <div id="configSection" class="hidden flex flex-col items-center gap-5">
+                        <h2 class="text-xl font-bold text-gray-800">Configuration du tri</h2>
+
+                        <p class="text-gray-600">
+                            Votre liste contient <strong id="configItemCount"></strong> éléments.
+                        </p>
+
+                        <!-- Info block -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 w-full max-w-lg text-sm text-gray-700 space-y-1">
+                            <div>
+                                Méthode classique (1 jalone) : <strong id="configBaselineEstimate"></strong> interactions
+                            </div>
+                            <div class="text-blue-700 font-medium">
+                                Recommandé pour rester sous 100 interactions :
+                                <strong id="configRecommendedK"></strong> jalons simultanés
+                                (~<strong id="configRecommendedEstimate"></strong> interactions)
+                            </div>
+                        </div>
+
+                        <!-- Custom k input -->
+                        <div class="flex items-center gap-3 text-sm">
+                            <label for="configKInput" class="text-gray-700">Nombre de jalons :</label>
+                            <input type="number" id="configKInput" min="1" max="20"
+                                class="border border-gray-300 rounded-lg px-3 py-1.5 w-20 text-center focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <span class="text-gray-600">
+                                → <strong id="configCustomEstimate"></strong> interactions estimées
+                            </span>
+                        </div>
+
+                        <button id="configValidateButton"
+                            class="cursor-pointer bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white font-semibold py-2 px-8 rounded-lg transition-colors">
+                            Valider et commencer
+                        </button>
+                    </div>
+
+                    <!-- Step 3 – Sorting -->
+                    <div id="choiceSection" class="hidden flex flex-col gap-4">
+
+                        <!-- Item to rank -->
+                        <div class="text-center">
+                            <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Où placer :</div>
+                            <div id="currentItemDisplay"
+                                class="inline-block bg-amber-100 border-2 border-amber-400 text-amber-900 font-bold py-3 px-6 rounded-xl text-lg sm:text-xl max-w-full break-words whitespace-pre-wrap leading-snug">
+                            </div>
+                        </div>
+
+                        <!-- Direction hint -->
+                        <div class="text-center text-xs text-gray-400 select-none">
+                            ← Meilleur &nbsp;·&nbsp; Moins bon →
+                        </div>
+
+                        <!-- Anchor row -->
+                        <div id="anchorContainer"
+                            class="flex items-center gap-2 overflow-x-auto py-3 px-1 min-h-[80px]">
+                        </div>
+
+                        <!-- Progress -->
+                        <div class="flex flex-col items-center gap-1 text-sm text-gray-500 border-t pt-3">
+                            <div>
+                                Élément
+                                <span id="currentItemNumber" class="font-semibold text-gray-700"></span>
+                                /
+                                <span id="totalItems" class="font-semibold text-gray-700"></span>
+                            </div>
+                            <div>
+                                Interactions : <span id="numberBattleDisplay" class="font-semibold text-gray-700">0</span>
+                                &nbsp;·&nbsp;
+                                Restantes estimées : ~<span id="numberBattleMaxDisplay" class="font-semibold text-gray-700">?</span>
+                            </div>
+                            <div class="w-full">
+                                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                    <span>Complétion</span>
+                                    <span><span id="completionPercentage" class="font-semibold text-gray-700">0</span>%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
-                <!-- Step 2 – Configuration -->
-                <div id="configSection" class="hidden flex flex-col items-center gap-5">
-                    <h2 class="text-xl font-bold text-gray-800">Configuration du tri</h2>
+                <!-- Tab : Tri manuel -->
+                <div id="manualTab" class="tab-panel hidden">
 
-                    <p class="text-gray-600">
-                        Votre liste contient <strong id="configItemCount"></strong> éléments.
-                    </p>
-
-                    <!-- Info block -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 w-full max-w-lg text-sm text-gray-700 space-y-1">
-                        <div>
-                            Méthode classique (1 jalone) : <strong id="configBaselineEstimate"></strong> interactions
+                    <!-- Step 1 – Input -->
+                    <div id="manualStartSection" class="flex flex-col w-full flex-auto place-items-center gap-2">
+                        <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="manualInput" cols="30" rows="8" placeholder="Optionnel : rentrez une liste initiale ici, ou commencez avec une liste vide."></textarea>
+                        <div class="text-sm text-gray-500 mt-1 text-center">
+                            Optionnel : une liste séparée par des sauts de ligne, ou un tableau JSON
+                            (ex. <code class="bg-gray-100 px-1 rounded">["A","B","C"]</code>).
+                            Vous pourrez de toute façon ajouter des bulles manuellement ensuite.
                         </div>
-                        <div class="text-blue-700 font-medium">
-                            Recommandé pour rester sous 100 interactions :
-                            <strong id="configRecommendedK"></strong> jalons simultanés
-                            (~<strong id="configRecommendedEstimate"></strong> interactions)
-                        </div>
-                    </div>
-
-                    <!-- Custom k input -->
-                    <div class="flex items-center gap-3 text-sm">
-                        <label for="configKInput" class="text-gray-700">Nombre de jalons :</label>
-                        <input type="number" id="configKInput" min="1" max="20"
-                            class="border border-gray-300 rounded-lg px-3 py-1.5 w-20 text-center focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <span class="text-gray-600">
-                            → <strong id="configCustomEstimate"></strong> interactions estimées
-                        </span>
-                    </div>
-
-                    <button id="configValidateButton"
-                        class="cursor-pointer bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white font-semibold py-2 px-8 rounded-lg transition-colors">
-                        Valider et commencer
-                    </button>
-                </div>
-
-                <!-- Step 3 – Sorting -->
-                <div id="choiceSection" class="hidden flex flex-col gap-4">
-
-                    <!-- Item to rank -->
-                    <div class="text-center">
-                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Où placer :</div>
-                        <div id="currentItemDisplay"
-                            class="inline-block bg-amber-100 border-2 border-amber-400 text-amber-900 font-bold py-2 px-5 rounded-xl text-base max-w-full break-words">
+                        <div class="flex gap-2 flex-wrap justify-center">
+                            <button id="manualLoadButton" type="button"
+                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-2 text-white text-center inline-block">
+                                Charger la liste
+                            </button>
+                            <button id="manualStartEmptyButton" type="button"
+                                class="cursor-pointer border hover:border-black border-transparent bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded m-2 text-gray-800 text-center inline-block">
+                                Commencer vide
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Direction hint -->
-                    <div class="text-center text-xs text-gray-400 select-none">
-                        ← Meilleur &nbsp;·&nbsp; Moins bon →
-                    </div>
+                    <!-- Step 2 – Manual sort -->
+                    <div id="manualSortSection" class="hidden flex flex-col gap-4">
+                        <h2 class="text-xl font-bold text-gray-800 text-center">Tri manuel</h2>
+                        <p class="text-sm text-gray-500 text-center">
+                            Glissez-déposez les bulles pour les réorganiser, ou utilisez les flèches.
+                            ← Meilleur · Moins bon →
+                        </p>
 
-                    <!-- Anchor row -->
-                    <div id="anchorContainer"
-                        class="flex items-center gap-2 overflow-x-auto py-3 px-1 min-h-[80px]">
-                    </div>
+                        <!-- Add bubble -->
+                        <div class="flex flex-wrap items-center gap-2 justify-center">
+                            <input type="text" id="manualAddInput"
+                                placeholder="Nouvel élément à ajouter…"
+                                class="border border-gray-300 rounded-lg px-3 py-1.5 flex-auto manual-add-input focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <button id="manualAddButton" type="button"
+                                class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                                + Ajouter
+                            </button>
+                        </div>
 
-                    <!-- Progress -->
-                    <div class="flex flex-col items-center gap-1 text-sm text-gray-500 border-t pt-3">
-                        <div>
-                            Élément
-                            <span id="currentItemNumber" class="font-semibold text-gray-700"></span>
-                            /
-                            <span id="totalItems" class="font-semibold text-gray-700"></span>
+                        <!-- Bubble list -->
+                        <ol id="manualBubbleList" class="manual-bubble-list flex flex-col gap-2"></ol>
+
+                        <!-- Empty state -->
+                        <div id="manualEmptyState" class="text-center text-gray-400 text-sm hidden">
+                            La liste est vide. Utilisez le champ ci-dessus pour ajouter une première bulle.
                         </div>
-                        <div>
-                            Interactions : <span id="numberBattleDisplay" class="font-semibold text-gray-700">0</span>
-                            &nbsp;·&nbsp;
-                            Restantes estimées : ~<span id="numberBattleMaxDisplay" class="font-semibold text-gray-700">?</span>
+
+                        <!-- Counter -->
+                        <div class="text-center text-sm text-gray-500">
+                            <span id="manualItemCount" class="font-semibold text-gray-700">0</span> élément(s)
                         </div>
-                        <div>
-                            Complétion : <span id="completionPercentage" class="font-semibold text-gray-700">0</span>%
+
+                        <!-- Actions -->
+                        <div class="flex flex-wrap items-center gap-2 justify-center border-t pt-3">
+                            <button id="manualCopyButton" type="button"
+                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded text-white text-center inline-block">
+                                Copier le tableau de sortie (JSON)
+                            </button>
+                            <button id="manualResetButton" type="button"
+                                class="cursor-pointer border hover:border-black border-transparent bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded text-gray-800 text-center inline-block">
+                                Réinitialiser
+                            </button>
                         </div>
                     </div>
                 </div>
