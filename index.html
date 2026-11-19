@@ -153,6 +153,16 @@
 
                 <!-- Step 1 – Input -->
                 <div id="manualStartSection" class="stack">
+                    <div id="manualResumeBanner" class="resume-banner hidden">
+                        <div>
+                            <strong>Tri manuel en cours retrouvé</strong>
+                            <div id="manualResumeInfo" class="muted"></div>
+                        </div>
+                        <div class="row">
+                            <button type="button" id="manualResumeButton" class="btn btn-primary">Reprendre</button>
+                            <button type="button" id="manualResumeDiscardButton" class="btn btn-ghost">Supprimer</button>
+                        </div>
+                    </div>
                     <textarea class="textarea" id="manualInput" rows="8" placeholder="Optionnel : rentre une liste initiale ici, ou commence avec une liste vide."></textarea>
                     <div class="muted text-center">
                         Optionnel : une liste séparée par des sauts de ligne, ou un tableau JSON

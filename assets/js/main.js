@@ -27,6 +27,7 @@ let resultItems = [];         // final ranked list of slots
 
 const SECONDS_PER_CLICK = 4;
 const STORAGE_KEY = 'sortThings.session.v1';
+const MANUAL_STORAGE_KEY = 'sortThings.manual.v1';
 
 // --- Utilities ---
 function escapeHtml(text) {
@@ -213,6 +214,31 @@ function saveSession() {
 
 function clearSession() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (_) { }
+}
+
+function saveManualSession() {
+    try {
+        localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify({
+            v: 1,
+            list: manualList,
+            colors: manualColors,
+            savedAt: Date.now(),
+        }));
+    } catch (_) { /* storage unavailable or full */ }
+}
+
+function clearManualSession() {
+    try { localStorage.removeItem(MANUAL_STORAGE_KEY); } catch (_) { }
+}
+
+function readManualSession() {
+    try {
+        const raw = localStorage.getItem(MANUAL_STORAGE_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || s.v !== 1 || !Array.isArray(s.list)) return null;
+        return s;
+    } catch (_) { return null; }
 }
 
 function readSession() {
@@ -864,6 +890,7 @@ function manualLoad() {
     hide(manualStartSection);
     show(manualSortSection);
     renderManualList();
+    saveManualSession();
 }
 
 function manualStartEmpty() {
@@ -872,16 +899,19 @@ function manualStartEmpty() {
     hide(manualStartSection);
     show(manualSortSection);
     renderManualList();
+    saveManualSession();
     manualAddInput.focus();
 }
 
 function manualReset() {
+    clearManualSession();
     manualList = [];
     manualColors = [];
     document.getElementById('manualInput').value = '';
     manualAddInput.value = '';
     hide(manualSortSection);
     show(manualStartSection);
+    checkManualResume();
 }
 
 function manualAdd() {
@@ -891,6 +921,7 @@ function manualAdd() {
     manualColors.push(nextBubbleColor());
     manualAddInput.value = '';
     renderManualList();
+    saveManualSession();
     requestAnimationFrame(() => {
         const last = manualBubbleList.lastElementChild;
         if (last) last.scrollIntoView({ block: 'nearest' });
@@ -901,6 +932,7 @@ function manualRemove(index) {
     manualList.splice(index, 1);
     manualColors.splice(index, 1);
     renderManualList();
+    saveManualSession();
 }
 
 function manualMove(from, to) {
@@ -912,6 +944,7 @@ function manualMove(from, to) {
     const [color] = manualColors.splice(from, 1);
     manualColors.splice(to, 0, color);
     renderManualList();
+    saveManualSession();
 }
 
 function ensurePlaceholder() {
@@ -1128,3 +1161,42 @@ manualAddInput.addEventListener('keydown', e => {
 });
 manualCopyButton.addEventListener('click', manualCopy);
 document.getElementById('manualResetButton').addEventListener('click', manualReset);
+
+function checkManualResume() {
+    const s = readManualSession();
+    if (!s) {
+        hide(document.getElementById('manualResumeBanner'));
+        return;
+    }
+    document.getElementById('manualResumeInfo').textContent =
+        `${s.list.length} élément${s.list.length > 1 ? 's' : ''} dans le classement en cours.`;
+    show(document.getElementById('manualResumeBanner'));
+}
+
+document.getElementById('manualResumeButton').addEventListener('click', () => {
+    const s = readManualSession();
+    if (!s) return;
+    manualList = s.list;
+    manualColors = Array.isArray(s.colors) ? s.colors : s.list.map((_, i) => BUBBLE_COLORS[i % BUBBLE_COLORS.length]);
+    hide(manualStartSection);
+    show(manualSortSection);
+    renderManualList();
+});
+
+document.getElementById('manualResumeDiscardButton').addEventListener('click', () => {
+    clearManualSession();
+    checkManualResume();
+});
+
+window.addEventListener('pagehide', () => {
+    if (phase === 'sorting' || phase === 'result') saveSession();
+    if (manualSortSection && !manualSortSection.classList.contains('hidden')) saveManualSession();
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    if (phase === 'sorting' || phase === 'result') saveSession();
+    if (manualSortSection && !manualSortSection.classList.contains('hidden')) saveManualSession();
+});
+
+checkManualResume();
