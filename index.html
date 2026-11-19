@@ -4,199 +4,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data: blob:; object-src 'none'; base-uri 'self';">
+    <title>sortThings – Trie tes jeux, obtiens ta tier list</title>
     <link href="main.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-        <div class="relative py-3 sm:mx-auto w-4/5">
-            <div class="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-3 sm:-rotate-6 sm:rounded-3xl"></div>
-            <div class="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
+    <div class="app">
+        <header class="app-header">
+            <h1>sortThings</h1>
+            <p>Classe rapidement une longue liste, puis transforme-la en tier list.</p>
+        </header>
 
-                <!-- Tabs -->
-                <div id="tabBar" class="tab-bar">
-                    <button type="button" class="tab-button is-active" data-tab="assisted">Tri assisté</button>
-                    <button type="button" class="tab-button" data-tab="manual">Tri manuel</button>
-                </div>
+        <main class="app-card">
 
-                <!-- Tab : Tri assisté -->
-                <div id="assistedTab" class="tab-panel">
-
-                    <!-- Results -->
-                    <div id="resultSummary" class="hidden w-full text-center text-gray-700 font-medium mb-2"></div>
-                    <div id="resultDisplaySection" class="flex flex-wrap w-full flex-auto place-items-center"></div>
-                    <div id="resultDisplayCopy"
-                        class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block hidden">
-                        Copier le tableau de sortie (JSON)
-                    </div>
-
-                    <!-- Step 1 – Input -->
-                    <div id="startSection" class="flex flex-col w-full flex-auto place-items-center">
-                        <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="input" cols="30" rows="10"></textarea>
-                        <div class="text-sm text-gray-500 mt-1">Rentrez une liste de choses à trier, séparées par un saut de ligne, ou collez un tableau JSON (ex. <code class="bg-gray-100 px-1 rounded">["A","B","C"]</code>)</div>
-                        <div id="startButton"
-                            class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-4 text-white text-center inline-block w-40">
-                            Start
-                        </div>
-                    </div>
-
-                    <!-- Step 2 – Configuration -->
-                    <div id="configSection" class="hidden flex flex-col items-center gap-5">
-                        <h2 class="text-xl font-bold text-gray-800">Configuration du tri</h2>
-
-                        <p class="text-gray-600">
-                            Votre liste contient <strong id="configItemCount"></strong> éléments.
-                        </p>
-
-                        <!-- Info block -->
-                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 w-full max-w-lg text-sm text-gray-700 space-y-1">
-                            <div>
-                                Méthode classique (1 jalone) : <strong id="configBaselineEstimate"></strong> interactions
-                            </div>
-                            <div class="text-blue-700 font-medium">
-                                Recommandé pour rester sous 100 interactions :
-                                <strong id="configRecommendedK"></strong> jalons simultanés
-                                (~<strong id="configRecommendedEstimate"></strong> interactions)
-                            </div>
-                        </div>
-
-                        <!-- Custom k input -->
-                        <div class="flex items-center gap-3 text-sm">
-                            <label for="configKInput" class="text-gray-700">Nombre de jalons :</label>
-                            <input type="number" id="configKInput" min="1" max="20"
-                                class="border border-gray-300 rounded-lg px-3 py-1.5 w-20 text-center focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <span class="text-gray-600">
-                                → <strong id="configCustomEstimate"></strong> interactions estimées
-                            </span>
-                        </div>
-
-                        <button id="configValidateButton"
-                            class="cursor-pointer bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white font-semibold py-2 px-8 rounded-lg transition-colors">
-                            Valider et commencer
-                        </button>
-                    </div>
-
-                    <!-- Step 3 – Sorting -->
-                    <div id="choiceSection" class="hidden flex flex-col gap-4">
-
-                        <!-- Item to rank -->
-                        <div class="text-center">
-                            <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Où placer :</div>
-                            <div id="currentItemDisplay"
-                                class="inline-block bg-amber-100 border-2 border-amber-400 text-amber-900 font-bold py-3 px-6 rounded-xl text-lg sm:text-xl max-w-full break-words whitespace-pre-wrap leading-snug">
-                            </div>
-                        </div>
-
-                        <!-- Direction hint -->
-                        <div class="text-center text-xs text-gray-400 select-none">
-                            ← Meilleur &nbsp;·&nbsp; Moins bon →
-                        </div>
-
-                        <!-- Anchor row -->
-                        <div id="anchorContainer"
-                            class="flex items-center gap-2 overflow-x-auto py-3 px-1 min-h-[80px]">
-                        </div>
-
-                        <!-- Progress -->
-                        <div class="flex flex-col items-center gap-1 text-sm text-gray-500 border-t pt-3">
-                            <div>
-                                Élément
-                                <span id="currentItemNumber" class="font-semibold text-gray-700"></span>
-                                /
-                                <span id="totalItems" class="font-semibold text-gray-700"></span>
-                            </div>
-                            <div>
-                                Interactions : <span id="numberBattleDisplay" class="font-semibold text-gray-700">0</span>
-                                &nbsp;·&nbsp;
-                                Restantes estimées : ~<span id="numberBattleMaxDisplay" class="font-semibold text-gray-700">?</span>
-                            </div>
-                            <div class="w-full">
-                                <div class="flex justify-between text-xs text-gray-500 mb-1">
-                                    <span>Complétion</span>
-                                    <span><span id="completionPercentage" class="font-semibold text-gray-700">0</span>%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Tab : Tri manuel -->
-                <div id="manualTab" class="tab-panel hidden">
-
-                    <!-- Step 1 – Input -->
-                    <div id="manualStartSection" class="flex flex-col w-full flex-auto place-items-center gap-2">
-                        <textarea class="resize p-1 border border-gray-400 rounded-md w-full" id="manualInput" cols="30" rows="8" placeholder="Optionnel : rentrez une liste initiale ici, ou commencez avec une liste vide."></textarea>
-                        <div class="text-sm text-gray-500 mt-1 text-center">
-                            Optionnel : une liste séparée par des sauts de ligne, ou un tableau JSON
-                            (ex. <code class="bg-gray-100 px-1 rounded">["A","B","C"]</code>).
-                            Vous pourrez de toute façon ajouter des bulles manuellement ensuite.
-                        </div>
-                        <div class="flex gap-2 flex-wrap justify-center">
-                            <button id="manualLoadButton" type="button"
-                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded m-2 text-white text-center inline-block">
-                                Charger la liste
-                            </button>
-                            <button id="manualStartEmptyButton" type="button"
-                                class="cursor-pointer border hover:border-black border-transparent bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded m-2 text-gray-800 text-center inline-block">
-                                Commencer vide
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Step 2 – Manual sort -->
-                    <div id="manualSortSection" class="hidden flex flex-col gap-4">
-                        <h2 class="text-xl font-bold text-gray-800 text-center">Tri manuel</h2>
-                        <p class="text-sm text-gray-500 text-center">
-                            Glissez-déposez les bulles pour les réorganiser, ou utilisez les flèches.
-                            ← Meilleur · Moins bon →
-                        </p>
-
-                        <!-- Add bubble -->
-                        <div class="flex flex-wrap items-center gap-2 justify-center">
-                            <input type="text" id="manualAddInput"
-                                placeholder="Nouvel élément à ajouter…"
-                                class="border border-gray-300 rounded-lg px-3 py-1.5 flex-auto manual-add-input focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <button id="manualAddButton" type="button"
-                                class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                                + Ajouter
-                            </button>
-                        </div>
-
-                        <!-- Bubble list -->
-                        <ol id="manualBubbleList" class="manual-bubble-list flex flex-col gap-2"></ol>
-
-                        <!-- Empty state -->
-                        <div id="manualEmptyState" class="text-center text-gray-400 text-sm hidden">
-                            La liste est vide. Utilisez le champ ci-dessus pour ajouter une première bulle.
-                        </div>
-
-                        <!-- Counter -->
-                        <div class="text-center text-sm text-gray-500">
-                            <span id="manualItemCount" class="font-semibold text-gray-700">0</span> élément(s)
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex flex-wrap items-center gap-2 justify-center border-t pt-3">
-                            <button id="manualCopyButton" type="button"
-                                class="cursor-pointer border hover:border-black border-transparent bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded text-white text-center inline-block">
-                                Copier le tableau de sortie (JSON)
-                            </button>
-                            <button id="manualResetButton" type="button"
-                                class="cursor-pointer border hover:border-black border-transparent bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded text-gray-800 text-center inline-block">
-                                Réinitialiser
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
+            <!-- Tabs -->
+            <div id="tabBar" class="tab-bar" role="tablist">
+                <button type="button" class="tab-button is-active" data-tab="assisted" role="tab">Tri assisté</button>
+                <button type="button" class="tab-button" data-tab="manual" role="tab">Tri manuel</button>
             </div>
-        </div>
+
+            <!-- ============ Tab : Tri assisté ============ -->
+            <div id="assistedTab" class="tab-panel">
+
+                <!-- Step 1 – Input -->
+                <section id="startSection" class="stack">
+                    <div id="resumeBanner" class="resume-banner hidden">
+                        <div>
+                            <strong>Session en cours retrouvée</strong>
+                            <div id="resumeInfo" class="muted"></div>
+                        </div>
+                        <div class="row">
+                            <button type="button" id="resumeButton" class="btn btn-primary">Reprendre</button>
+                            <button type="button" id="resumeDiscardButton" class="btn btn-ghost">Supprimer</button>
+                        </div>
+                    </div>
+
+                    <h2 class="section-title">Ta liste</h2>
+                    <textarea id="input" class="textarea" rows="10"
+                        placeholder="Un élément par ligne…&#10;&#10;ou un tableau JSON : [&quot;A&quot;, &quot;B&quot;]&#10;ou avec images : [{&quot;value&quot;:&quot;A&quot;,&quot;image&quot;:&quot;https://…&quot;}]"></textarea>
+                    <div class="row row-between">
+                        <div id="inputInfo" class="muted">Colle ta liste, ou importe un fichier .json / .txt.</div>
+                        <div class="row">
+                            <label class="btn btn-ghost" for="fileInput">Importer un fichier</label>
+                            <input type="file" id="fileInput" accept=".json,.txt,.csv,application/json,text/plain" class="sr-only">
+                        </div>
+                    </div>
+                    <div class="row row-center">
+                        <button type="button" id="startButton" class="btn btn-primary btn-lg" disabled>Continuer →</button>
+                    </div>
+                </section>
+
+                <!-- Step 2 – Configuration -->
+                <section id="configSection" class="stack stack-center hidden">
+                    <h2 class="section-title">Configuration du tri</h2>
+                    <p class="muted">Ta liste contient <strong id="configItemCount"></strong> éléments.</p>
+
+                    <div class="mode-grid">
+                        <label class="mode-card">
+                            <input type="radio" name="sortMode" value="tiers" checked>
+                            <span class="mode-title">Tier list rapide <em>conseillé pour les longues listes</em></span>
+                            <span class="mode-desc">1 clic par élément pour choisir son tier (S → F).
+                                <strong>~<span id="modeTiersClicks"></span> clics</strong>, environ <strong id="modeTiersTime"></strong>.
+                                Ensuite, tu peux trier l'ordre à l'intérieur des tiers qui t'intéressent.</span>
+                        </label>
+                        <label class="mode-card">
+                            <input type="radio" name="sortMode" value="full">
+                            <span class="mode-title">Classement complet</span>
+                            <span class="mode-desc">Chaque élément est placé précisément par rapport aux autres.
+                                <strong>~<span id="modeFullClicks"></span> clics</strong>, environ <strong id="modeFullTime"></strong>.</span>
+                        </label>
+                    </div>
+
+                    <div id="fullOptions" class="slider-block hidden">
+                        <div class="info-card">
+                            <div class="info-line">
+                                <span>Méthode classique (1 seul jalon à la fois)</span>
+                                <strong><span id="configBaselineEstimate"></span> clics</strong>
+                            </div>
+                            <div class="info-line info-accent">
+                                <span>Recommandé : <strong id="configRecommendedK"></strong> jalons affichés</span>
+                                <strong>~<span id="configRecommendedEstimate"></span> clics</strong>
+                            </div>
+                        </div>
+                        <label for="configKInput">Nombre de jalons affichés en même temps : <strong id="configKValue"></strong></label>
+                        <input type="range" id="configKInput" min="1" max="20" step="1">
+                        <div class="slider-scale"><span>moins de choix par écran</span><span>moins de clics au total</span></div>
+                        <div class="slider-result">
+                            ≈ <strong id="configCustomEstimate"></strong> clics, soit environ
+                            <strong id="configCustomTime"></strong>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button type="button" id="configBackButton" class="btn btn-ghost">← Modifier la liste</button>
+                        <button type="button" id="configValidateButton" class="btn btn-primary btn-lg">Commencer le tri</button>
+                    </div>
+                </section>
+
+                <!-- Step 3 – Sorting -->
+                <section id="choiceSection" class="hidden">
+
+                    <div class="progress-head">
+                        <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+                        <div class="progress-meta">
+                            <span><strong id="placedCount">0</strong> / <span id="totalItems">0</span> classés (<span id="completionPercentage">0</span>%)</span>
+                            <span><span id="numberBattleDisplay">0</span> clics · reste ~<strong id="numberBattleMaxDisplay">?</strong> (~<span id="remainingTime">?</span>)</span>
+                        </div>
+                    </div>
+
+                    <div class="choice-grid">
+                        <!-- Item to rank -->
+                        <aside class="current-card">
+                            <div class="current-label">À placer</div>
+                            <img id="currentItemImage" class="current-item-img hidden" alt="">
+                            <div id="currentItemDisplay" class="current-name"></div>
+                            <div class="current-actions">
+                                <button type="button" id="undoButton" class="btn btn-ghost btn-sm" title="Annuler le dernier choix (Retour arrière / Ctrl+Z)">↶ Annuler</button>
+                                <button type="button" id="skipButton" class="btn btn-ghost btn-sm" title="Je ne connais pas cet élément : le mettre de côté (touche P)">Passer (P)</button>
+                            </div>
+                            <button type="button" id="saveQuitButton" class="link-btn">Quitter (la progression est sauvegardée)</button>
+                        </aside>
+
+                        <!-- Ladder -->
+                        <div class="ladder-wrap">
+                            <div id="runContext" class="run-context hidden"></div>
+                            <div id="ladderHint" class="ladder-hint"></div>
+                            <div id="anchorContainer" class="ladder"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 4 – Results -->
+                <section id="resultSection" class="stack hidden">
+                    <div class="result-head">
+                        <div>
+                            <h2 class="section-title">Ta tier list</h2>
+                            <div id="resultSummary" class="muted"></div>
+                        </div>
+                        <div class="seg">
+                            <button type="button" class="seg-btn is-active" data-view="tiers">Tier list</button>
+                            <button type="button" class="seg-btn" data-view="ranking">Classement</button>
+                        </div>
+                    </div>
+
+                    <div id="tierView" class="stack">
+                        <p class="muted">Clique sur un élément pour le déplacer dans un autre tier (l'ordre du classement est conservé).</p>
+                        <div id="tierList" class="tier-list"></div>
+                        <div class="row">
+                            <button type="button" id="tierResetButton" class="btn btn-ghost btn-sm">Répartition automatique</button>
+                        </div>
+                    </div>
+
+                    <ol id="rankingView" class="ranking-list hidden"></ol>
+
+                    <div id="refineBanner" class="resume-banner hidden">
+                        <div id="refineInfo"></div>
+                        <button type="button" id="refineButton" class="btn btn-primary btn-sm">Trier tous les tiers</button>
+                    </div>
+
+                    <div id="skippedBlock" class="info-card hidden">
+                        <div class="info-line">
+                            <span><strong id="skippedCount">0</strong> élément(s) passé(s) :</span>
+                            <button type="button" id="rankSkippedButton" class="btn btn-primary btn-sm">Les classer maintenant</button>
+                        </div>
+                        <div id="skippedList" class="muted"></div>
+                    </div>
+
+                    <div class="row row-center result-actions">
+                        <button type="button" id="exportPngButton" class="btn btn-primary">Exporter en image (PNG)</button>
+                        <button type="button" id="copyTextButton" class="btn btn-secondary">Copier en texte</button>
+                        <button type="button" id="resultDisplayCopy" class="btn btn-secondary">Copier le JSON</button>
+                        <button type="button" id="resultUndoButton" class="btn btn-ghost">↶ Annuler le dernier choix</button>
+                        <button type="button" id="newSortButton" class="btn btn-ghost">Nouveau tri</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ============ Tab : Tri manuel ============ -->
+            <div id="manualTab" class="tab-panel hidden">
+
+                <!-- Step 1 – Input -->
+                <div id="manualStartSection" class="stack">
+                    <textarea class="textarea" id="manualInput" rows="8" placeholder="Optionnel : rentre une liste initiale ici, ou commence avec une liste vide."></textarea>
+                    <div class="muted text-center">
+                        Optionnel : une liste séparée par des sauts de ligne, ou un tableau JSON
+                        (ex. <code>["A","B"]</code> ou <code>[{"value":"A","image":"https://..."}]</code>).
+                        Tu pourras de toute façon ajouter des bulles manuellement ensuite.
+                    </div>
+                    <div class="row row-center">
+                        <button id="manualLoadButton" type="button" class="btn btn-primary">Charger la liste</button>
+                        <button id="manualStartEmptyButton" type="button" class="btn btn-secondary">Commencer vide</button>
+                    </div>
+                </div>
+
+                <!-- Step 2 – Manual sort -->
+                <div id="manualSortSection" class="stack hidden">
+                    <h2 class="section-title text-center">Tri manuel</h2>
+                    <p class="muted text-center">
+                        Glisse-dépose les bulles pour les réorganiser, ou utilise les flèches.
+                        ← Meilleur · Moins bon →
+                    </p>
+
+                    <div class="row row-center">
+                        <input type="text" id="manualAddInput" placeholder="Nouvel élément à ajouter…" class="text-input manual-add-input">
+                        <button id="manualAddButton" type="button" class="btn btn-success">+ Ajouter</button>
+                    </div>
+
+                    <ol id="manualBubbleList" class="manual-bubble-list"></ol>
+
+                    <div id="manualEmptyState" class="muted text-center hidden">
+                        La liste est vide. Utilise le champ ci-dessus pour ajouter une première bulle.
+                    </div>
+
+                    <div class="muted text-center">
+                        <strong id="manualItemCount">0</strong> élément(s)
+                    </div>
+
+                    <div class="row row-center top-rule">
+                        <button id="manualCopyButton" type="button" class="btn btn-primary">Copier le tableau de sortie (JSON)</button>
+                        <button id="manualResetButton" type="button" class="btn btn-ghost">Réinitialiser</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
     </div>
+
+    <!-- Tier picker popover -->
+    <div id="tierMenu" class="tier-menu hidden" role="menu" aria-label="Choisir un tier"></div>
 
     <script src="./assets/js/main.js"></script>
 </body>

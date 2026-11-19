@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run build && vite",
     "preview": "vite preview",
     "build": "npm run build:css && npm run build:minify",
     "build:css": "npx tailwindcss -i ./assets/css/main.css -o ./temp/main.css",
