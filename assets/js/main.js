@@ -1,5 +1,5 @@
 // =====================================================================
-// sortThings – tri assisté (insertion multi-jalons) + tier list
+// sortThings – tri assisté par insertion multi-jalons
 // =====================================================================
 
 const $ = id => document.getElementById(id);
@@ -22,30 +22,11 @@ let k = 7;                    // number of anchors shown simultaneously
 let numberBattles = 0;
 let startingNumberToSort = 0;
 let history = [];             // undo snapshots
-let phase = 'input';          // input | config | sorting | bucketing | result
-let mode = 'tiers';           // tiers (quick tier list) | full (complete ranking)
-let buckets = [];             // bucketing phase: one array of slots per tier
-let resultItems = [];         // final flat list of slots (tier by tier)
-let tierEnds = null;          // cumulative end index of each tier in resultItems (exclusive)
-let tierSorted = [];          // is the order inside each tier meaningful?
-let refineQueue = [];         // tiers still to sort in "refine" runs
-let refineTier = null;        // tier currently being sorted, or null
+let phase = 'input';          // input | config | sorting | result
+let resultItems = [];         // final ranked list of slots
 
 const SECONDS_PER_CLICK = 4;
-const SECONDS_PER_BUCKET_CLICK = 2;
 const STORAGE_KEY = 'sortThings.session.v1';
-
-const TIERS = [
-    { label: 'S', color: '#ff7f7f', share: 0.07 },
-    { label: 'A', color: '#ffbf7f', share: 0.18 },
-    { label: 'B', color: '#ffdf7f', share: 0.25 },
-    { label: 'C', color: '#ffff7f', share: 0.25 },
-    { label: 'D', color: '#bfff7f', share: 0.15 },
-    { label: 'F', color: '#7fff7f', share: 0.10 },
-];
-
-const TIER_KEYS = TIERS.map(t => t.label.toLowerCase());
-function TIERS_FALSE() { return TIERS.map(() => false); }
 
 // --- Utilities ---
 function escapeHtml(text) {
@@ -146,10 +127,9 @@ function estimateTotalInteractions(n, anchors) {
 }
 
 function estimateRemainingInteractions() {
-    if (startingArray.length === 0) return 0;
     const base = k + 1;
     let remaining = 0;
-    for (let i = 0; i < startingArray.length; i++) {
+    for (let i = 0; i <= startingArray.length; i++) {
         remaining += Math.ceil(Math.log(destinationArray.length + i + 1) / Math.log(base));
     }
     return remaining;
@@ -224,9 +204,9 @@ function updateInputInfo() {
 function saveSession() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            v: 2, phase, mode, k, numberBattles, startingNumberToSort, startingArray, destinationArray,
+            v: 3, phase, k, numberBattles, startingNumberToSort, startingArray, destinationArray,
             skippedItems, current: currentEvaluatedChoice ?? null, lo: searchLo, hi: searchHi,
-            buckets, resultItems, tierEnds, tierSorted, refineQueue, refineTier, savedAt: Date.now(),
+            resultItems, savedAt: Date.now(),
         }));
     } catch (_) { /* storage unavailable or full */ }
 }
@@ -240,9 +220,13 @@ function readSession() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return null;
         const s = JSON.parse(raw);
-        if (!s || s.v !== 2 || !Array.isArray(s.destinationArray) || !Array.isArray(s.startingArray)) return null;
-        if (!['sorting', 'bucketing', 'result'].includes(s.phase)) return null;
-        return s;
+        if (!s || !Array.isArray(s.destinationArray) || !Array.isArray(s.startingArray)) return null;
+        if (s.v === 3 && ['sorting', 'result'].includes(s.phase)) return s;
+        if (s.v === 2 && s.mode === 'full' && s.refineTier == null &&
+            ['sorting', 'result'].includes(s.phase)) {
+            return { ...s, v: 3, resultItems: Array.isArray(s.resultItems) ? s.resultItems : s.destinationArray };
+        }
+        return null;
     } catch (_) { return null; }
 }
 
@@ -250,7 +234,7 @@ function checkResume() {
     const s = readSession();
     if (!s) { hide($("resumeBanner")); return; }
     $("resumeInfo").textContent = s.phase === 'result'
-        ? `Tier list terminée : ${s.resultItems.length} éléments.`
+        ? `Classement terminé : ${s.resultItems.length} éléments.`
         : `${s.startingArray.length + 1} élément(s) restant(s) à placer, ${s.numberBattles} clics effectués.`;
     show($("resumeBanner"));
 }
@@ -263,13 +247,8 @@ function resumeSession() {
     skippedItems = Array.isArray(s.skippedItems) ? s.skippedItems : [];
     currentEvaluatedChoice = s.current;
     searchLo = s.lo; searchHi = s.hi;
-    k = s.k; mode = s.mode; numberBattles = s.numberBattles; startingNumberToSort = s.startingNumberToSort;
-    buckets = Array.isArray(s.buckets) ? s.buckets : TIERS.map(() => []);
+    k = s.k; numberBattles = s.numberBattles; startingNumberToSort = s.startingNumberToSort;
     resultItems = Array.isArray(s.resultItems) ? s.resultItems : [];
-    tierEnds = Array.isArray(s.tierEnds) ? s.tierEnds : null;
-    tierSorted = Array.isArray(s.tierSorted) ? s.tierSorted : TIERS_FALSE();
-    refineQueue = Array.isArray(s.refineQueue) ? s.refineQueue : [];
-    refineTier = s.refineTier ?? null;
     history = [];
     hide(startSection);
     if (s.phase === 'result' || currentEvaluatedChoice == null) {
@@ -302,16 +281,7 @@ function showConfigScreen() {
     $('configRecommendedEstimate').textContent = estimateTotalInteractions(startingNumberToSort, rec);
 
     $('configKInput').value = rec;
-    $('modeTiersClicks').textContent = startingNumberToSort;
-    $('modeTiersTime').textContent = formatDuration(startingNumberToSort * SECONDS_PER_BUCKET_CLICK);
-    const big = startingNumberToSort > 80;
-    document.querySelector('input[name="sortMode"][value="' + (big ? 'tiers' : 'full') + '"]').checked = true;
     updateConfigEstimate();
-}
-
-function selectedMode() {
-    const r = document.querySelector('input[name="sortMode"]:checked');
-    return r ? r.value : 'tiers';
 }
 
 function readConfigK() {
@@ -325,9 +295,6 @@ function updateConfigEstimate() {
     $('configKValue').textContent = kk;
     $('configCustomEstimate').textContent = est;
     $('configCustomTime').textContent = formatDuration(est * SECONDS_PER_CLICK);
-    $('modeFullClicks').textContent = est;
-    $('modeFullTime').textContent = formatDuration(est * SECONDS_PER_CLICK);
-    $('fullOptions').classList.toggle('hidden', selectedMode() !== 'full');
 }
 
 function backToInput() {
@@ -338,10 +305,9 @@ function backToInput() {
 }
 
 function validateConfig() {
-    mode = selectedMode();
-    k = mode === 'full' ? readConfigK() : 7;
+    k = readConfigK();
     hide(configSection);
-    if (mode === 'full') initializeSorting(); else initializeBucketing();
+    initializeSorting();
 }
 
 function toSlot(item) {
@@ -353,31 +319,14 @@ function resetRunState() {
     numberBattles = 0;
     history = [];
     skippedItems = [];
-    tierEnds = null;
     resultItems = [];
-    tierSorted = TIERS_FALSE();
-    refineQueue = [];
-    refineTier = null;
 }
 
-// Full ranking: insertion sort over the whole list.
+// Insert each item at its position relative to the already-ranked items.
 function initializeSorting() {
     resetRunState();
     destinationArray = [toSlot(startingArray.pop())];
     phase = 'sorting';
-    show(choiceSection);
-    nextItem();
-}
-
-// Quick tier list: one click per item to pick its tier.
-function initializeBucketing(keepExisting = false) {
-    if (!keepExisting) resetRunState();
-    buckets = TIERS.map((_, i) => keepExisting && tierEnds
-        ? resultItems.slice(i === 0 ? 0 : tierEnds[i - 1], tierEnds[i])
-        : []);
-    startingArray = startingArray.map(toSlot).reverse();
-    startingNumberToSort = startingArray.length;
-    phase = 'bucketing';
     show(choiceSection);
     nextItem();
 }
@@ -396,23 +345,11 @@ function nextItem() {
 
 function renderChoice() {
     updateChoiceChrome();
-    if (phase === 'bucketing') renderBuckets(); else renderAnchors();
+    renderAnchors();
 }
 
-// Texts / visibility that depend on the current kind of run.
 function updateChoiceChrome() {
-    const bucketing = phase === 'bucketing';
-    $('ladderHint').innerHTML = bucketing
-        ? 'Dans quel tier range-t-on cet élément ? Raccourcis : <kbd>S</kbd> <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd> <kbd>D</kbd> <kbd>F</kbd> ou <kbd>1</kbd>–<kbd>6</kbd>.'
-        : 'Clique sur l\'emplacement où cet élément se range. Raccourcis : touches <kbd>1</kbd>–<kbd>9</kbd>.';
-    $('skipButton').classList.toggle('hidden', refineTier !== null);
-    const ctx = $('runContext');
-    if (refineTier !== null) {
-        ctx.textContent = `Tri à l'intérieur du tier ${TIERS[refineTier].label}`;
-        show(ctx);
-    } else {
-        hide(ctx);
-    }
+    $('ladderHint').innerHTML = 'Clique sur l\'emplacement où cet élément se range. Raccourcis : touches <kbd>1</kbd>–<kbd>9</kbd>.';
 }
 
 function renderCurrent() {
@@ -507,43 +444,13 @@ function renderAnchors() {
     saveSession();
 }
 
-function renderBuckets() {
-    const frag = document.createDocumentFragment();
-    TIERS.forEach((tier, i) => {
-        const btn = el('button', 'bucket-btn');
-        btn.type = 'button';
-        btn.dataset.tier = i;
-        btn.style.background = tier.color;
-        btn.appendChild(el('span', 'bucket-letter', tier.label));
-        btn.appendChild(el('span', 'bucket-count', `${buckets[i].length} élément${buckets[i].length > 1 ? 's' : ''}`));
-        btn.appendChild(el('kbd', '', tier.label));
-        btn.addEventListener('click', () => bucketClick(i));
-        frag.appendChild(btn);
-    });
-    anchorContainer.replaceChildren(frag);
-    updateProgress();
-    saveSession();
-}
-
-function bucketClick(tierIndex) {
-    pushSnapshot();
-    numberBattles++;
-    buckets[tierIndex].push(toSlot(currentEvaluatedChoice));
-    tierSorted[tierIndex] = false;
-    nextItem();
-}
-
 function pushSnapshot() {
     history.push({
-        phase, refineTier,
+        phase,
         starting: startingArray.slice(),
         dest: destinationArray.slice(),
         skipped: skippedItems.slice(),
-        buckets: buckets.map(b => b.slice()),
         resultItems: resultItems.slice(),
-        tierEnds: tierEnds ? tierEnds.slice() : null,
-        tierSorted: tierSorted.slice(),
-        refineQueue: refineQueue.slice(),
         current: currentEvaluatedChoice,
         lo: searchLo, hi: searchHi, battles: numberBattles,
     });
@@ -576,7 +483,7 @@ function insertCurrent(position) {
 }
 
 function skipCurrent() {
-    if (phase !== 'sorting' && phase !== 'bucketing') return;
+    if (phase !== 'sorting') return;
     pushSnapshot();
     skippedItems.push(currentEvaluatedChoice);
     nextItem();
@@ -588,12 +495,7 @@ function undo() {
     startingArray = s.starting;
     destinationArray = s.dest;
     skippedItems = s.skipped;
-    buckets = s.buckets;
     resultItems = s.resultItems;
-    tierEnds = s.tierEnds;
-    tierSorted = s.tierSorted;
-    refineQueue = s.refineQueue;
-    refineTier = s.refineTier;
     currentEvaluatedChoice = s.current;
     searchLo = s.lo; searchHi = s.hi; numberBattles = s.battles;
     if (phase === 'result') {
@@ -606,12 +508,9 @@ function undo() {
 }
 
 function updateProgress() {
-    const bucketing = phase === 'bucketing';
-    const placed = bucketing
-        ? startingNumberToSort - startingArray.length - 1
-        : destinationArray.length + skippedItems.length;
-    const remaining = bucketing ? startingArray.length + 1 : estimateRemainingInteractions();
-    const secs = remaining * (bucketing ? SECONDS_PER_BUCKET_CLICK : SECONDS_PER_CLICK);
+    const placed = destinationArray.length + skippedItems.length;
+    const remaining = estimateRemainingInteractions();
+    const secs = remaining * SECONDS_PER_CLICK;
     const pct = Math.min(100, Math.floor(placed / startingNumberToSort * 100));
     $('totalItems').textContent = startingNumberToSort;
     $('placedCount').textContent = placed;
@@ -632,60 +531,8 @@ function quitToStart() {
 }
 
 // --- Results ---
-function defaultTierEnds(n) {
-    let cumulative = 0;
-    return TIERS.map((t, i) => {
-        if (i === TIERS.length - 1) return n;
-        cumulative += t.share;
-        return Math.round(n * cumulative);
-    });
-}
-
-function tierOf(rank) {
-    for (let i = 0; i < tierEnds.length; i++) if (rank < tierEnds[i]) return i;
-    return TIERS.length - 1;
-}
-
-// Put the item at `rank` into tier T while keeping the ranking order intact:
-// every item between its current tier and T follows it.
-function assignTier(rank, T) {
-    const t = tierOf(rank);
-    if (T === t) return;
-    if (mode === 'tiers') {
-        // Quick mode: move exactly this item (next to the boundary it crosses).
-        const [item] = resultItems.splice(rank, 1);
-        for (let i = t; i < tierEnds.length; i++) tierEnds[i]--;
-        const pos = T > t ? (T === 0 ? 0 : tierEnds[T - 1]) : tierEnds[T];
-        resultItems.splice(pos, 0, item);
-        for (let i = T; i < tierEnds.length; i++) tierEnds[i]++;
-    } else if (T > t) {
-        for (let i = t; i < T; i++) tierEnds[i] = Math.min(tierEnds[i], rank);
-    } else {
-        for (let i = T; i < t; i++) tierEnds[i] = Math.max(tierEnds[i], rank + 1);
-    }
-    renderTierList();
-    renderRankingList();
-    renderRefineBanner();
-    saveSession();
-}
-
-// Called when the current run (full sort, bucketing or one tier refinement) is over.
 function finishRun() {
-    if (phase === 'bucketing') {
-        resultItems = buckets.flat();
-        let acc = 0;
-        tierEnds = buckets.map(b => (acc += b.length));
-    } else if (refineTier !== null) {
-        const start = refineTier === 0 ? 0 : tierEnds[refineTier - 1];
-        resultItems.splice(start, tierEnds[refineTier] - start, ...destinationArray);
-        tierSorted[refineTier] = true;
-        refineTier = null;
-        if (refineQueue.length) { nextRefine(); return; }
-    } else {
-        resultItems = destinationArray.slice();
-        tierEnds = defaultTierEnds(resultItems.length);
-        tierSorted = TIERS.map(() => true);
-    }
+    resultItems = destinationArray.slice();
     showResult();
 }
 
@@ -693,115 +540,20 @@ function showResult() {
     phase = 'result';
     hide(choiceSection);
     show(resultSection);
-    if (!tierEnds || tierEnds.length !== TIERS.length) tierEnds = defaultTierEnds(resultItems.length);
     const n = resultItems.length;
     $('resultSummary').textContent =
         `${n} élément${n > 1 ? 's' : ''} placé${n > 1 ? 's' : ''} en ${numberBattles} clic${numberBattles > 1 ? 's' : ''}.`;
     $('resultUndoButton').disabled = history.length === 0;
-    renderTierList();
     renderRankingList();
     renderSkipped();
-    renderRefineBanner();
     saveSession();
-}
-
-function tierSize(i) { return tierEnds[i] - (i === 0 ? 0 : tierEnds[i - 1]); }
-
-function unsortedTiers() {
-    return TIERS.map((_, i) => i).filter(i => !tierSorted[i] && tierSize(i) >= 2);
-}
-
-function renderRefineBanner() {
-    const todo = unsortedTiers();
-    const banner = $('refineBanner');
-    if (todo.length === 0) { hide(banner); return; }
-    const clicks = todo.reduce((a, i) => a + estimateTotalInteractions(tierSize(i), 7), 0);
-    $('refineInfo').textContent =
-        `L'ordre à l'intérieur de ${todo.length} tier${todo.length > 1 ? 's' : ''} n'est pas trié (~${clicks} clics, ~${formatDuration(clicks * SECONDS_PER_CLICK)} pour tout trier).`;
-    show(banner);
-}
-
-function startRefine(queue) {
-    if (queue.length === 0) return;
-    refineQueue = queue.slice();
-    history = [];
-    skippedItems = [];
-    nextRefine();
-}
-
-function nextRefine() {
-    refineTier = refineQueue.shift();
-    const start = refineTier === 0 ? 0 : tierEnds[refineTier - 1];
-    const items = resultItems.slice(start, tierEnds[refineTier]);
-    startingArray = items.slice().reverse();
-    startingNumberToSort = items.length;
-    destinationArray = [startingArray.pop()];
-    hide(resultSection);
-    phase = 'sorting';
-    show(choiceSection);
-    nextItem();
-}
-
-function makeChip(slot, rank, showRank) {
-    const imgUrl = slotImage(slot);
-    const name = itemDisplay(slot);
-    const chip = el('button', 'tier-chip ' + (imgUrl ? 'has-img' : 'text-only'));
-    chip.type = 'button';
-    chip.title = (showRank ? `#${rank + 1} · ` : '') + name;
-    chip.dataset.rank = rank;
-
-    const toTextChip = () => {
-        chip.className = 'tier-chip text-only';
-        chip.replaceChildren(...(showRank ? [el('span', 'chip-rank', '#' + (rank + 1))] : []), document.createTextNode(name));
-    };
-    if (imgUrl) {
-        const img = el('img');
-        img.alt = '';
-        img.loading = 'lazy';
-        img.onerror = toTextChip;
-        img.src = imgUrl;
-        chip.appendChild(img);
-        chip.appendChild(el('span', 'chip-name', name));
-        if (showRank) chip.appendChild(el('span', 'chip-rank', '#' + (rank + 1)));
-    } else {
-        if (showRank) chip.appendChild(el('span', 'chip-rank', '#' + (rank + 1)));
-        chip.appendChild(document.createTextNode(name));
-    }
-    chip.addEventListener('click', e => { e.stopPropagation(); openTierMenu(chip, rank); });
-    return chip;
-}
-
-function renderTierList() {
-    const list = $('tierList');
-    const frag = document.createDocumentFragment();
-    TIERS.forEach((tier, i) => {
-        const start = i === 0 ? 0 : tierEnds[i - 1];
-        const end = tierEnds[i];
-        const row = el('div', 'tier-row');
-        const label = el('div', 'tier-label', tier.label);
-        label.style.background = tier.color;
-        label.appendChild(el('small', '', String(end - start)));
-        if (!tierSorted[i] && end - start >= 2) {
-            const sortBtn = el('button', 'tier-sort-btn', 'trier');
-            sortBtn.type = 'button';
-            sortBtn.title = `Classer les éléments du tier ${tier.label} du meilleur au moins bon`;
-            sortBtn.addEventListener('click', () => startRefine([i]));
-            label.appendChild(sortBtn);
-        }
-        const body = el('div', 'tier-body');
-        for (let r = start; r < end; r++) body.appendChild(makeChip(resultItems[r], r, tierSorted[i]));
-        if (end === start) body.appendChild(el('span', 'tier-empty', 'Vide'));
-        row.append(label, body);
-        frag.appendChild(row);
-    });
-    list.replaceChildren(frag);
 }
 
 function renderRankingList() {
     const frag = document.createDocumentFragment();
     resultItems.forEach((slot, i) => {
-        const li = el('li', 'ranking-item' + (tierSorted[tierOf(i)] && i === 0 ? ' top1' : tierSorted[tierOf(i)] && i < 3 ? ' top3' : ''));
-        li.appendChild(el('span', 'r-num', tierSorted[tierOf(i)] ? String(i + 1) : TIERS[tierOf(i)].label));
+        const li = el('li', 'ranking-item' + (i === 0 ? ' top1' : i < 3 ? ' top3' : ''));
+        li.appendChild(el('span', 'r-num', String(i + 1)));
         const imgUrl = slotImage(slot);
         if (imgUrl) {
             const img = el('img');
@@ -832,76 +584,51 @@ function rankSkipped() {
     history = [];
     hide(resultSection);
     show(choiceSection);
-    if (mode === 'tiers') {
-        initializeBucketing(true);
-    } else {
-        destinationArray = resultItems.slice();
-        startingNumberToSort = destinationArray.length + startingArray.length;
-        tierEnds = null;
-        phase = 'sorting';
-        nextItem();
-    }
+    destinationArray = resultItems.slice();
+    startingNumberToSort = destinationArray.length + startingArray.length;
+    phase = 'sorting';
+    nextItem();
 }
 
 function newSort() {
     if (!confirm('Abandonner ce classement et recommencer un nouveau tri ?')) return;
     clearSession();
-    destinationArray = []; startingArray = []; skippedItems = []; history = []; tierEnds = null;
-    resultItems = []; buckets = []; tierSorted = TIERS_FALSE(); refineQueue = []; refineTier = null;
+    destinationArray = []; startingArray = []; skippedItems = []; history = [];
+    resultItems = [];
     hide(resultSection);
     show(startSection);
     phase = 'input';
     checkResume();
 }
 
-// --- Tier popover ---
-const tierMenu = $('tierMenu');
-
-function openTierMenu(chip, rank) {
-    const current = tierOf(rank);
-    tierMenu.replaceChildren(...TIERS.map((tier, i) => {
-        const b = el('button', i === current ? 'is-current' : '', tier.label);
-        b.type = 'button';
-        b.style.background = tier.color;
-        b.title = `Placer dans le tier ${tier.label}`;
-        b.addEventListener('click', e => { e.stopPropagation(); closeTierMenu(); assignTier(rank, i); });
-        return b;
-    }));
-    show(tierMenu);
-    const r = chip.getBoundingClientRect();
-    const mw = tierMenu.offsetWidth, mh = tierMenu.offsetHeight;
-    let left = Math.min(Math.max(8, r.left + r.width / 2 - mw / 2), window.innerWidth - mw - 8);
-    let top = r.bottom + 6;
-    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
-    tierMenu.style.left = left + 'px';
-    tierMenu.style.top = top + 'px';
-}
-
-function closeTierMenu() { hide(tierMenu); }
-
-document.addEventListener('click', e => { if (!tierMenu.contains(e.target)) closeTierMenu(); });
-window.addEventListener('scroll', closeTierMenu, { passive: true });
-
 // --- Exports ---
-function flatSlot(slot) { return slot.length === 1 ? slot[0] : slot; }
+function flatSlot(slot) { return Array.isArray(slot) && slot.length === 1 ? slot[0] : slot; }
 
 function copyJson() {
-    writeToClipboard(JSON.stringify(resultItems.map(flatSlot)));
+    writeToClipboard(JSON.stringify(resultItems.map(flatSlot), null, 2));
     flashButton($('resultDisplayCopy'), 'Copié !');
 }
 
-function tierText() {
-    const lines = TIERS.map((tier, i) => {
-        const start = i === 0 ? 0 : tierEnds[i - 1];
-        const names = resultItems.slice(start, tierEnds[i]).map(itemDisplay);
-        return `${tier.label} : ${names.join(', ') || '—'}`;
-    });
-    if (skippedItems.length) lines.push(`Non classés : ${skippedItems.map(itemDisplay).join(', ')}`);
+function downloadJson() {
+    const json = JSON.stringify(resultItems.map(flatSlot), null, 2);
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sortthings-classement.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function rankedText() {
+    const lines = resultItems.map((slot, i) => `${i + 1}. ${itemDisplay(slot)}`);
+    if (skippedItems.length) lines.push('', `Non classés : ${skippedItems.map(itemDisplay).join(', ')}`);
     return lines.join('\n');
 }
 
 function copyText() {
-    writeToClipboard(tierText());
+    writeToClipboard(rankedText());
     flashButton($('copyTextButton'), 'Copié !');
 }
 
@@ -943,19 +670,15 @@ async function exportPng() {
     const original = btn.textContent;
     btn.textContent = 'Génération…';
     try {
-        const W = 1280, labelW = 110, tile = 96, gap = 4, pad = 4;
-        const cols = Math.floor((W - labelW - pad) / (tile + gap));
+        const W = 1280, tile = 96, gap = 8, pad = 8;
+        const cols = Math.max(1, Math.floor((W - pad * 2) / (tile + gap)));
         const images = await Promise.all(resultItems.map(slot => {
             const u = slotImage(slot);
             return u ? loadImage(u) : Promise.resolve(null);
         }));
 
-        const rowsPerTier = TIERS.map((_, i) => {
-            const n = tierEnds[i] - (i === 0 ? 0 : tierEnds[i - 1]);
-            return Math.max(1, Math.ceil(n / cols));
-        });
-        const rowHeights = rowsPerTier.map(r => r * (tile + gap) + pad);
-        const H = rowHeights.reduce((a, b) => a + b, 0) + TIERS.length * 2;
+        const rows = Math.max(1, Math.ceil(resultItems.length / cols));
+        const H = pad * 2 + rows * (tile + gap);
 
         const canvas = document.createElement('canvas');
         canvas.width = W; canvas.height = H;
@@ -963,52 +686,40 @@ async function exportPng() {
         ctx.fillStyle = '#171717';
         ctx.fillRect(0, 0, W, H);
 
-        let y = 0;
-        TIERS.forEach((tier, i) => {
-            const start = i === 0 ? 0 : tierEnds[i - 1];
-            const end = tierEnds[i];
-            const h = rowHeights[i];
-            ctx.fillStyle = '#262626';
-            ctx.fillRect(labelW, y, W - labelW, h);
-            ctx.fillStyle = tier.color;
-            ctx.fillRect(0, y, labelW, h);
-            ctx.fillStyle = '#171717';
-            ctx.font = '800 44px system-ui, sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(tier.label, labelW / 2, y + h / 2);
-
-            for (let r = start; r < end; r++) {
-                const idx = r - start;
-                const x = labelW + pad + (idx % cols) * (tile + gap);
-                const ty = y + pad + Math.floor(idx / cols) * (tile + gap);
-                const img = images[r];
-                const name = itemDisplay(resultItems[r]);
-                if (img) {
-                    // cover-fit
-                    const s = Math.max(tile / img.width, tile / img.height);
-                    const sw = tile / s, sh = tile / s;
-                    ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, ty, tile, tile);
-                    const grad = ctx.createLinearGradient(0, ty + tile - 30, 0, ty + tile);
-                    grad.addColorStop(0, 'rgba(0,0,0,0)');
-                    grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(x, ty + tile - 30, tile, 30);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '700 11px system-ui, sans-serif';
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-                    const lines = wrapText(ctx, name, tile - 6, 2);
-                    lines.forEach((ln, li) => ctx.fillText(ln, x + tile / 2, ty + tile - 4 - (lines.length - 1 - li) * 12));
-                } else {
-                    ctx.fillStyle = '#404040';
-                    ctx.fillRect(x, ty, tile, tile);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '700 13px system-ui, sans-serif';
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    const lines = wrapText(ctx, name, tile - 10, 5);
-                    lines.forEach((ln, li) => ctx.fillText(ln, x + tile / 2, ty + tile / 2 + (li - (lines.length - 1) / 2) * 16));
-                }
+        resultItems.forEach((slot, i) => {
+            const x = pad + (i % cols) * (tile + gap);
+            const y = pad + Math.floor(i / cols) * (tile + gap);
+            const img = images[i];
+            const name = itemDisplay(slot);
+            if (img) {
+                const s = Math.max(tile / img.width, tile / img.height);
+                const sw = tile / s, sh = tile / s;
+                ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, tile, tile);
+                const grad = ctx.createLinearGradient(0, y + tile - 30, 0, y + tile);
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(x, y + tile - 30, tile, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = '700 11px system-ui, sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+                const lines = wrapText(ctx, name, tile - 6, 2);
+                lines.forEach((ln, li) => ctx.fillText(ln, x + tile / 2, y + tile - 4 - (lines.length - 1 - li) * 12));
+            } else {
+                ctx.fillStyle = '#404040';
+                ctx.fillRect(x, y, tile, tile);
+                ctx.fillStyle = '#fff';
+                ctx.font = '700 13px system-ui, sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const lines = wrapText(ctx, name, tile - 10, 5);
+                lines.forEach((ln, li) => ctx.fillText(ln, x + tile / 2, y + tile / 2 + (li - (lines.length - 1) / 2) * 16));
             }
-            y += h + 2;
+            ctx.fillStyle = '#2563eb';
+            ctx.fillRect(x, y, 24, 20);
+            ctx.fillStyle = '#fff';
+            ctx.font = '700 11px system-ui, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(String(i + 1), x + 12, y + 10);
         });
 
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
@@ -1016,7 +727,7 @@ async function exportPng() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'tier-list.png';
+        a.download = 'sortthings-classement.png';
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -1033,7 +744,6 @@ async function exportPng() {
 document.addEventListener('keydown', e => {
     if ($('assistedTab').classList.contains('hidden')) return;
     if (e.target.closest && e.target.closest('input, textarea, select')) return;
-    if (e.key === 'Escape') { closeTierMenu(); return; }
 
     const isUndo = (e.key === 'Backspace') || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z');
     if (isUndo && (phase === 'sorting' || phase === 'result') && history.length) {
@@ -1041,15 +751,9 @@ document.addEventListener('keydown', e => {
         undo();
         return;
     }
-    if ((phase !== 'sorting' && phase !== 'bucketing') || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (phase !== 'sorting' || e.ctrlKey || e.metaKey || e.altKey) return;
 
-    if (e.key.toLowerCase() === 'p') { if (refineTier === null) skipCurrent(); return; }
-    if (phase === 'bucketing') {
-        let ti = TIER_KEYS.indexOf(e.key.toLowerCase());
-        if (ti < 0 && /^[1-6]$/.test(e.key)) ti = parseInt(e.key) - 1;
-        if (ti >= 0) bucketClick(ti);
-        return;
-    }
+    if (e.key.toLowerCase() === 'p') { skipCurrent(); return; }
     if (/^[0-9]$/.test(e.key)) {
         const idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
         const btn = anchorContainer.querySelector(`.gap-bar[data-gap="${idx}"]`);
@@ -1067,16 +771,6 @@ $('fileInput').addEventListener('change', e => {
     e.target.value = '';
 });
 
-// --- Result view toggle ---
-document.querySelectorAll('.seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('is-active', b === btn));
-        const tiers = btn.dataset.view === 'tiers';
-        $('tierView').classList.toggle('hidden', !tiers);
-        $('rankingView').classList.toggle('hidden', tiers);
-    });
-});
-
 // --- Assisted-tab event listeners ---
 $("startButton").addEventListener("click", start);
 inputEl.addEventListener("input", updateInputInfo);
@@ -1088,15 +782,13 @@ $("skipButton").addEventListener("click", skipCurrent);
 $("saveQuitButton").addEventListener("click", quitToStart);
 $("resumeButton").addEventListener("click", resumeSession);
 $("resumeDiscardButton").addEventListener("click", () => { clearSession(); checkResume(); });
-$("tierResetButton").addEventListener("click", () => { tierEnds = defaultTierEnds(resultItems.length); renderTierList(); renderRankingList(); renderRefineBanner(); saveSession(); });
 $("rankSkippedButton").addEventListener("click", rankSkipped);
 $("exportPngButton").addEventListener("click", exportPng);
 $("copyTextButton").addEventListener("click", copyText);
 $("resultDisplayCopy").addEventListener("click", copyJson);
+$("downloadJsonButton").addEventListener("click", downloadJson);
 $("resultUndoButton").addEventListener("click", undo);
 $("newSortButton").addEventListener("click", newSort);
-$("refineButton").addEventListener("click", () => startRefine(unsortedTiers()));
-document.querySelectorAll('input[name="sortMode"]').forEach(r => r.addEventListener('change', updateConfigEstimate));
 
 updateInputInfo();
 checkResume();

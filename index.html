@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data: blob:; object-src 'none'; base-uri 'self';">
-    <title>sortThings – Trie tes jeux, obtiens ta tier list</title>
+    <title>sortThings – Classement comparatif de tes jeux</title>
     <link href="main.css" rel="stylesheet">
 </head>
 
@@ -13,7 +13,7 @@
     <div class="app">
         <header class="app-header">
             <h1>sortThings</h1>
-            <p>Classe rapidement une longue liste, puis transforme-la en tier list.</p>
+            <p>Classe tes éléments du meilleur au moins bon en les comparant un à un.</p>
         </header>
 
         <main class="app-card">
@@ -58,25 +58,9 @@
                 <!-- Step 2 – Configuration -->
                 <section id="configSection" class="stack stack-center hidden">
                     <h2 class="section-title">Configuration du tri</h2>
-                    <p class="muted">Ta liste contient <strong id="configItemCount"></strong> éléments.</p>
+                    <p class="muted">Classe tes <strong id="configItemCount"></strong> éléments en les insérant un à un par rapport aux autres.</p>
 
-                    <div class="mode-grid">
-                        <label class="mode-card">
-                            <input type="radio" name="sortMode" value="tiers" checked>
-                            <span class="mode-title">Tier list rapide <em>conseillé pour les longues listes</em></span>
-                            <span class="mode-desc">1 clic par élément pour choisir son tier (S → F).
-                                <strong>~<span id="modeTiersClicks"></span> clics</strong>, environ <strong id="modeTiersTime"></strong>.
-                                Ensuite, tu peux trier l'ordre à l'intérieur des tiers qui t'intéressent.</span>
-                        </label>
-                        <label class="mode-card">
-                            <input type="radio" name="sortMode" value="full">
-                            <span class="mode-title">Classement complet</span>
-                            <span class="mode-desc">Chaque élément est placé précisément par rapport aux autres.
-                                <strong>~<span id="modeFullClicks"></span> clics</strong>, environ <strong id="modeFullTime"></strong>.</span>
-                        </label>
-                    </div>
-
-                    <div id="fullOptions" class="slider-block hidden">
+                    <div class="slider-block">
                         <div class="info-card">
                             <div class="info-line">
                                 <span>Méthode classique (1 seul jalon à la fois)</span>
@@ -128,7 +112,6 @@
 
                         <!-- Ladder -->
                         <div class="ladder-wrap">
-                            <div id="runContext" class="run-context hidden"></div>
                             <div id="ladderHint" class="ladder-hint"></div>
                             <div id="anchorContainer" class="ladder"></div>
                         </div>
@@ -139,29 +122,12 @@
                 <section id="resultSection" class="stack hidden">
                     <div class="result-head">
                         <div>
-                            <h2 class="section-title">Ta tier list</h2>
+                            <h2 class="section-title">Ton classement</h2>
                             <div id="resultSummary" class="muted"></div>
                         </div>
-                        <div class="seg">
-                            <button type="button" class="seg-btn is-active" data-view="tiers">Tier list</button>
-                            <button type="button" class="seg-btn" data-view="ranking">Classement</button>
-                        </div>
                     </div>
 
-                    <div id="tierView" class="stack">
-                        <p class="muted">Clique sur un élément pour le déplacer dans un autre tier (l'ordre du classement est conservé).</p>
-                        <div id="tierList" class="tier-list"></div>
-                        <div class="row">
-                            <button type="button" id="tierResetButton" class="btn btn-ghost btn-sm">Répartition automatique</button>
-                        </div>
-                    </div>
-
-                    <ol id="rankingView" class="ranking-list hidden"></ol>
-
-                    <div id="refineBanner" class="resume-banner hidden">
-                        <div id="refineInfo"></div>
-                        <button type="button" id="refineButton" class="btn btn-primary btn-sm">Trier tous les tiers</button>
-                    </div>
+                    <ol id="rankingView" class="ranking-list"></ol>
 
                     <div id="skippedBlock" class="info-card hidden">
                         <div class="info-line">
@@ -174,7 +140,8 @@
                     <div class="row row-center result-actions">
                         <button type="button" id="exportPngButton" class="btn btn-primary">Exporter en image (PNG)</button>
                         <button type="button" id="copyTextButton" class="btn btn-secondary">Copier en texte</button>
-                        <button type="button" id="resultDisplayCopy" class="btn btn-secondary">Copier le JSON</button>
+                        <button type="button" id="resultDisplayCopy" class="btn btn-secondary">Copier le classement (JSON)</button>
+                        <button type="button" id="downloadJsonButton" class="btn btn-secondary">Télécharger le JSON</button>
                         <button type="button" id="resultUndoButton" class="btn btn-ghost">↶ Annuler le dernier choix</button>
                         <button type="button" id="newSortButton" class="btn btn-ghost">Nouveau tri</button>
                     </div>
@@ -230,9 +197,6 @@
 
         </main>
     </div>
-
-    <!-- Tier picker popover -->
-    <div id="tierMenu" class="tier-menu hidden" role="menu" aria-label="Choisir un tier"></div>
 
     <script src="./assets/js/main.js"></script>
 </body>
